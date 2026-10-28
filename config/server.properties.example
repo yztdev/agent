@@ -1,0 +1,7 @@
+# Copy this file to config/server.properties and replace the placeholders.
+# Keep server.properties private: it contains passwords.
+app.database.url=jdbc:postgresql://localhost:5432/terminal_agent
+app.database.user=agent
+app.database.password=REPLACE_WITH_DATABASE_PASSWORD
+app.tls.keystore=C:/Users/yang/terminal-agent-dev.p12
+app.tls.password=REPLACE_WITH_CERTIFICATE_PASSWORD

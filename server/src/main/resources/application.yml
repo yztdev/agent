@@ -2,13 +2,15 @@ server:
   port: ${PORT:8443}
   ssl:
     enabled: true
-    key-store: ${TLS_KEYSTORE}
-    key-store-password: ${TLS_KEYSTORE_PASSWORD}
+    key-store: ${TLS_KEYSTORE:${app.tls.keystore:}}
+    key-store-password: ${TLS_KEYSTORE_PASSWORD:${app.tls.password:}}
     key-store-type: PKCS12
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USER}
-    password: ${DATABASE_PASSWORD}
+    url: ${DATABASE_URL:${app.database.url:jdbc:postgresql://localhost:5432/terminal_agent}}
+    username: ${DATABASE_USER:${app.database.user:agent}}
+    password: ${DATABASE_PASSWORD:${app.database.password:}}
   flyway:
     enabled: true

@@ -2,3 +2,7 @@
 .env
 *.p12
 .idea/
+
+dist/
+
+/config/server.properties
