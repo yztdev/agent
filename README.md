@@ -77,7 +77,7 @@ PowerShell 中的 `/agent` 不是普通命令名，请使用 `agent`；程序内
 
 ## V0.2 试运行配置
 
-服务端 `.env` 中配置 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_MODEL`；`DEEPSEEK_MAX_OUTPUT` 可选，默认 1024。当前不检查用户剩余配额，也不再使用 `DEEPSEEK_CONTEXT_LIMIT` 进行请求判断；实际用量仍记录，供应商调用会产生费用。密钥仅保存在服务端，不提交或分发。
+服务端 `.env` 中配置 `MODEL_API_URL`（完整 HTTPS Chat Completions 地址）、`MODEL_API_KEY`、`MODEL_NAME`；`MODEL_MAX_OUTPUT` 可选，默认 1024。旧的 `DEEPSEEK_API_KEY`、`DEEPSEEK_MODEL`、`DEEPSEEK_MAX_OUTPUT` 仍可作为回退，但仍需配置 `MODEL_API_URL`。当前不检查用户剩余配额，也不再使用 `DEEPSEEK_CONTEXT_LIMIT` 进行请求判断；实际用量仍记录，供应商调用会产生费用。密钥仅保存在服务端，不提交或分发。
 
 部署新 JAR 前备份数据库。Flyway 会自动执行 V2、V3 迁移，新用户默认 Token 额度为 0；管理员在 `https://服务器地址:8443/admin.html` 登录并设置配额。用户在终端输入问题进行单轮对话，用 `/quota` 查看余额。当前无跨提问记忆及工具调用。
 
@@ -90,3 +90,15 @@ PowerShell 中的 `/agent` 不是普通命令名，请使用 `agent`；程序内
 ## Java 源码目录
 
 客户端 Java 源码位于 `client/src/main/java`；服务端 Java 源码及测试位于 `server/src/main/java` 和 `server/src/test/java`。服务端仍由 `server/pom.xml` 单独构建，其数据库迁移、配置和管理后台资源仍在 `server/src/main/resources`。使用 `mvn -pl server -am package` 构建服务端，使用 `mvn -pl client -am package` 构建客户端。
+
+## 模型配置
+
+模型调用统一通过 `ModelGateway` 接口，当前适配器支持兼容 OpenAI Chat Completions 流式格式并返回 usage 的 HTTPS 接口；不同供应商的非兼容协议仍需另写适配器。`.env` 示例见 `.env.example`。切换模型时同时核对完整接口地址、密钥及模型名称，重启服务后生效；用量缺失将保留为待核对。
+
+## 服务端分层
+
+`server/src/main/java/dev/terminalagent/server` 下，`controller` 负责 HTTP 接口，`service` 负责认证与 Token 业务，`model` 定义并实现模型调用接口，`config` 管理模型配置和管理员初始化；`Application` 是启动入口。数据库迁移和静态后台资源仍位于 `server/src/main/resources`。
+
+## 系统提示词
+
+默认系统提示词为 `server/src/main/resources/prompts/system.md`，随服务端 JAR 打包，模型请求中位于用户消息之前。也可在 `.env` 中设置 `SYSTEM_PROMPT_PATH` 指向 UTF-8 文件；该路径相对于服务端启动目录（建议生产使用绝对路径）。文件缺失或为空时服务启动失败，修改提示词后需重启。提示词会计入模型输入用量；V0.2 尚无工具调用与 ReAct 循环，提示词不会赋予尚未实现的能力，也不能替代权限校验。

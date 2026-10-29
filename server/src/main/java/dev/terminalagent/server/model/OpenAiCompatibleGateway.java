@@ -1,11 +1,12 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.model;
 
+import dev.terminalagent.server.config.ModelSettings;
+import dev.terminalagent.server.config.SystemPrompt;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -14,39 +15,42 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-class DeepSeekGateway implements ModelGateway {
+class OpenAiCompatibleGateway implements ModelGateway {
     private final ObjectMapper json;
     private final HttpClient http;
-    @Value("${DEEPSEEK_API_KEY:}") String apiKey;
-    @Value("${DEEPSEEK_MODEL:deepseek-flash}") String model;
-    @Value("${DEEPSEEK_MAX_OUTPUT:1024}") int maxOutput;
+    private final ModelSettings settings;
+    private final SystemPrompt systemPrompt;
 
     @org.springframework.beans.factory.annotation.Autowired
-    DeepSeekGateway(ObjectMapper json) {
-        this(json, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
+    OpenAiCompatibleGateway(ObjectMapper json, ModelSettings settings, SystemPrompt systemPrompt) {
+        this(json, settings, systemPrompt, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
     }
 
-    DeepSeekGateway(ObjectMapper json, HttpClient http) {
+    OpenAiCompatibleGateway(ObjectMapper json, ModelSettings settings, SystemPrompt systemPrompt, HttpClient http) {
         this.json = json;
+        this.settings = settings;
+        this.systemPrompt = systemPrompt;
         this.http = http;
     }
 
     @Override
     public Usage stream(String prompt, Consumer<String> onText) throws Exception {
         var body = Map.of(
-            "model", model,
-            "messages", List.of(Map.of("role", "user", "content", prompt)),
+            "model", settings.model(),
+            "messages", List.of(
+                Map.of("role", "system", "content", systemPrompt.content()),
+                Map.of("role", "user", "content", prompt)
+            ),
             "stream", true,
             "stream_options", Map.of("include_usage", true),
-            "max_tokens", maxOutput
+            "max_tokens", settings.maxOutput()
         );
-        var request = HttpRequest.newBuilder(URI.create("https://api.deepseek.com/chat/completions"))
+        var request = HttpRequest.newBuilder(settings.endpoint())
             .timeout(Duration.ofSeconds(150))
-            .header("Authorization", "Bearer " + apiKey)
+            .header("Authorization", "Bearer " + settings.apiKey())
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body)))
             .build();

@@ -1,5 +1,7 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.controller;
 
+import dev.terminalagent.server.service.AuthService;
+import dev.terminalagent.server.service.QuotaService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -9,17 +11,17 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 class AdminController {
-    private final AuthController auth;
+    private final AuthService auth;
     private final QuotaService quota;
     private final JdbcTemplate database;
 
-    AdminController(AuthController auth, QuotaService quota, JdbcTemplate database) {
+    AdminController(AuthService auth, QuotaService quota, JdbcTemplate database) {
         this.auth = auth;
         this.quota = quota;
         this.database = database;
     }
 
-    private AuthController.UserInfo requireAdmin(HttpServletRequest request) {
+    private AuthService.UserInfo requireAdmin(HttpServletRequest request) {
         var user = auth.current(request);
         if (!user.role().equals("ADMIN")) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         return user;

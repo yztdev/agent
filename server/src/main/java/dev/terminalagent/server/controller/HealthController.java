@@ -1,4 +1,4 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.controller;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;

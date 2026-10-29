@@ -1,5 +1,9 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.controller;
 
+import dev.terminalagent.server.service.AuthService;
+import dev.terminalagent.server.service.QuotaService;
+import dev.terminalagent.server.model.ModelGateway;
+import dev.terminalagent.server.config.ModelSettings;
 import java.io.IOException;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -13,7 +17,7 @@ class ChatControllerTest {
         var quota = mock(QuotaService.class);
         var gateway = mock(ModelGateway.class);
         when(gateway.stream(eq("question"), any())).thenReturn(new ModelGateway.Usage(3, 4));
-        var controller = new ChatController(mock(AuthController.class), quota, gateway);
+        var controller = new ChatController(mock(AuthService.class), quota, gateway, new ModelSettings("https://provider.example/chat", "test", "model", 100));
         UUID id = UUID.randomUUID();
         controller.run("question", id, mock(SseEmitter.class));
         verify(quota).settle(id, 3, 4);
@@ -25,7 +29,7 @@ class ChatControllerTest {
         var quota = mock(QuotaService.class);
         var gateway = mock(ModelGateway.class);
         when(gateway.stream(eq("question"), any())).thenThrow(new IOException("incomplete"));
-        var controller = new ChatController(mock(AuthController.class), quota, gateway);
+        var controller = new ChatController(mock(AuthService.class), quota, gateway, new ModelSettings("https://provider.example/chat", "test", "model", 100));
         UUID id = UUID.randomUUID();
         controller.run("question", id, mock(SseEmitter.class));
         verify(quota).markPending(id);

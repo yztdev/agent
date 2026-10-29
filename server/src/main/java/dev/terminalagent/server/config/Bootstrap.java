@@ -1,4 +1,4 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.config;
 
 import java.io.Console;
 import java.nio.charset.StandardCharsets;

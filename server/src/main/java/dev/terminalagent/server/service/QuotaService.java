@@ -1,4 +1,4 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.service;
 
 import java.util.Map;
 import java.util.UUID;
@@ -10,11 +10,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 /** Owns quota changes. Every reservation and settlement is committed atomically. */
 @Service
-class QuotaService {
+public class QuotaService {
     private final JdbcTemplate database;
     private final TransactionTemplate transactions;
 
-    QuotaService(JdbcTemplate database, TransactionTemplate transactions) {
+    public QuotaService(JdbcTemplate database, TransactionTemplate transactions) {
         this.database = database;
         this.transactions = transactions;
     }
@@ -23,7 +23,7 @@ class QuotaService {
         database.update("insert into token_accounts(user_id) values (?) on conflict do nothing", userId);
     }
 
-    Map<String, Object> balance(UUID userId) {
+    public Map<String, Object> balance(UUID userId) {
         ensureAccount(userId);
         return database.queryForMap("""
             select quota_total, settled_total, reserved_total,
@@ -32,7 +32,7 @@ class QuotaService {
             """, userId);
     }
 
-    UUID reserve(UUID userId, String model, long budget) {
+    public UUID reserve(UUID userId, String model, long budget) {
         if (budget < 0) throw new IllegalArgumentException("Reservation cannot be negative");
         return transactions.execute(status -> {
             ensureAccount(userId);
@@ -50,7 +50,7 @@ class QuotaService {
         });
     }
 
-    void settle(UUID requestId, long inputTokens, long outputTokens) {
+    public void settle(UUID requestId, long inputTokens, long outputTokens) {
         if (inputTokens < 0 || outputTokens < 0) throw new IllegalArgumentException("Invalid token usage");
         long total = Math.addExact(inputTokens, outputTokens);
         transactions.executeWithoutResult(status -> {
@@ -69,7 +69,7 @@ class QuotaService {
     }
 
     /** Only use when a request is known not to have reached the model provider. */
-    void releaseBeforeSend(UUID requestId) {
+    public void releaseBeforeSend(UUID requestId) {
         transactions.executeWithoutResult(status -> {
             Map<String, Object> request = database.queryForMap(
                 "select user_id, reserved_tokens, status from token_requests where id = ? for update", requestId);
@@ -82,11 +82,11 @@ class QuotaService {
         });
     }
 
-    void markPending(UUID requestId) {
+    public void markPending(UUID requestId) {
         database.update("update token_requests set status = 'pending_review', updated_at = now() where id = ? and status = 'reserved'", requestId);
     }
 
-    void resolve(UUID requestId, long inputTokens, long outputTokens, UUID actorId, String reason) {
+    public void resolve(UUID requestId, long inputTokens, long outputTokens, UUID actorId, String reason) {
         validateReason(reason);
         transactions.executeWithoutResult(status -> {
             var rows = database.queryForList("select status from token_requests where id = ? for update", requestId);
@@ -101,7 +101,7 @@ class QuotaService {
         });
     }
 
-    void adjust(UUID actorId, UUID userId, long newQuota, String reason) {
+    public void adjust(UUID actorId, UUID userId, long newQuota, String reason) {
         if (newQuota < 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Quota cannot be negative");
         validateReason(reason);
         transactions.executeWithoutResult(status -> {

@@ -1,4 +1,4 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -11,28 +11,28 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-@RestController
-public class AuthController {
+@Service
+public class AuthService {
     private final JdbcTemplate db;
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder();
     private final SecureRandom random = new SecureRandom();
     // Per-instance limit; use a shared rate limiter before multi-instance deployment.
     private final Map<String, ArrayDeque<Long>> attempts = new LinkedHashMap<>();
 
-    AuthController(JdbcTemplate db) {
+    public AuthService(JdbcTemplate db) {
         this.db = db;
     }
 
-    record Credentials(String username, String password) {
+    public record Credentials(String username, String password) {
     }
 
-    record UserInfo(UUID id, String username, String role) {
+    public record UserInfo(UUID id, String username, String role) {
     }
 
-    record LoginResponse(String token, Instant expiresAt) {
+    public record LoginResponse(String token, Instant expiresAt) {
     }
 
     private static String hash(String v) {
@@ -54,8 +54,7 @@ public class AuthController {
         q.addLast(now);
     }
 
-    @PostMapping("/api/login")
-    public LoginResponse login(@RequestBody Credentials c, HttpServletRequest req) {
+    public LoginResponse login(Credentials c, HttpServletRequest req) {
         limit(req.getRemoteAddr());
         if (c.username() == null || c.password() == null || c.username().length() > 100 || c.password().getBytes(StandardCharsets.UTF_8).length > 72)
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
@@ -77,26 +76,22 @@ public class AuthController {
         return h.substring(7);
     }
 
-    UserInfo current(HttpServletRequest req) {
+    public UserInfo current(HttpServletRequest req) {
         var result = db.query("select u.id,u.username,u.role from auth_sessions s join users u on u.id=s.user_id where s.token_hash=? and s.revoked_at is null and s.expires_at>now() and u.status='ACTIVE'", (rs, n) -> new UserInfo((UUID) rs.getObject(1), rs.getString(2), rs.getString(3)), hash(token(req)));
         if (result.isEmpty()) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED);
         return result.get(0);
     }
 
-    @GetMapping("/api/me")
     public UserInfo me(HttpServletRequest req) {
         return current(req);
     }
 
-    @PostMapping("/api/logout")
     public void logout(HttpServletRequest req) {
         current(req);
         db.update("update auth_sessions set revoked_at=now() where token_hash=?", hash(token(req)));
     }
 
-    @PostMapping("/api/users")
-    @ResponseStatus(HttpStatus.CREATED)
-    public void create(@RequestBody Credentials c, HttpServletRequest req) {
+    public void create(Credentials c, HttpServletRequest req) {
         if (!current(req).role().equals("ADMIN")) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         if (c.username() == null || !c.username().matches("[A-Za-z0-9_.-]{3,100}") || c.password() == null || c.password().length() < 12 || c.password().getBytes(StandardCharsets.UTF_8).length > 72)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid username or password");

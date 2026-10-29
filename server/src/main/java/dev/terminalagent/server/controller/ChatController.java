@@ -1,5 +1,9 @@
-package dev.terminalagent.server;
+package dev.terminalagent.server.controller;
 
+import dev.terminalagent.server.service.AuthService;
+import dev.terminalagent.server.service.QuotaService;
+import dev.terminalagent.server.model.ModelGateway;
+import dev.terminalagent.server.config.ModelSettings;
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.util.Map;
@@ -9,7 +13,6 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,22 +22,21 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 class ChatController {
-    private final AuthController auth;
+    private final AuthService auth;
     private final QuotaService quota;
     private final ModelGateway modelGateway;
     private final ThreadPoolExecutor workers = new ThreadPoolExecutor(
         2, 8, 60, TimeUnit.SECONDS, new ArrayBlockingQueue<>(32));
 
-    @Value("${DEEPSEEK_API_KEY:}") String apiKey;
-    @Value("${DEEPSEEK_MODEL:deepseek-flash}") String model;
-    @Value("${DEEPSEEK_MAX_OUTPUT:1024}") int maxOutput;
+    private final ModelSettings modelSettings;
 
     record Prompt(String prompt) {}
 
-    ChatController(AuthController auth, QuotaService quota, ModelGateway modelGateway) {
+    ChatController(AuthService auth, QuotaService quota, ModelGateway modelGateway, ModelSettings modelSettings) {
         this.auth = auth;
         this.quota = quota;
         this.modelGateway = modelGateway;
+        this.modelSettings = modelSettings;
     }
 
     @PostMapping(value = "/api/chat", produces = "text/event-stream")
@@ -43,11 +45,11 @@ class ChatController {
         if (input.prompt() == null || input.prompt().isBlank() || input.prompt().length() > 20000) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Prompt is invalid");
         }
-        if (apiKey.isBlank() || maxOutput <= 0) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "DeepSeek configuration incomplete");
+        if (!modelSettings.isValid()) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Model configuration incomplete or invalid");
         }
         // Keep a request record for usage accounting without reserving a quota budget.
-        UUID requestId = quota.reserve(user.id(), model, 0);
+        UUID requestId = quota.reserve(user.id(), modelSettings.model(), 0);
         SseEmitter emitter = new SseEmitter(180000L);
         try {
             workers.execute(() -> run(input.prompt(), requestId, emitter));
