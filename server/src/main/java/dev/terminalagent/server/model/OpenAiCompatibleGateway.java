@@ -38,16 +38,23 @@ class OpenAiCompatibleGateway implements ModelGateway {
 
     @Override
     public Usage stream(String prompt, Consumer<String> onText) throws Exception {
-        var body = Map.of(
+        return streamWithSystem(systemPrompt.content(), prompt, onText);
+    }
+
+    @Override
+    public Usage streamWithSystem(String instructions, String prompt, Consumer<String> onText) throws Exception {
+        var body = new java.util.LinkedHashMap<String, Object>(Map.of(
             "model", settings.model(),
             "messages", List.of(
-                Map.of("role", "system", "content", systemPrompt.content()),
+                Map.of("role", "system", "content", instructions),
                 Map.of("role", "user", "content", prompt)
             ),
             "stream", true,
-            "stream_options", Map.of("include_usage", true),
-            "max_tokens", settings.maxOutput()
-        );
+            "stream_options", Map.of("include_usage", true)
+        ));
+        if (!settings.thinking().isBlank()) {
+            body.put("thinking", Map.of("type", settings.thinking()));
+        }
         var request = HttpRequest.newBuilder(settings.endpoint())
             .timeout(Duration.ofSeconds(150))
             .header("Authorization", "Bearer " + settings.apiKey())
@@ -60,6 +67,8 @@ class OpenAiCompatibleGateway implements ModelGateway {
             long input = -1;
             long output = -1;
             boolean finished = false;
+            boolean hasVisibleText = false;
+            String finishReason = "";
             try (var reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
@@ -74,13 +83,15 @@ class OpenAiCompatibleGateway implements ModelGateway {
                     }
                     JsonNode choices = event.path("choices");
                     if (choices.isArray() && !choices.isEmpty()) {
-                        String text = choices.get(0).path("delta").path("content").asText("");
-                        if (!text.isEmpty()) onText.accept(text);
+                        JsonNode choice = choices.get(0);
+                        if (choice.hasNonNull("finish_reason")) finishReason = choice.get("finish_reason").asText("");
+                        String text = choice.path("delta").path("content").asText("");
+                        if (!text.isEmpty()) { hasVisibleText = true; onText.accept(text); }
                     }
                 }
             }
             if (!finished || input < 0 || output < 0) throw new IOException("Provider usage is unavailable");
-            return new Usage(input, output);
+            return new Usage(input, output, finishReason, hasVisibleText);
         }
     }
 }

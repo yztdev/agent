@@ -152,7 +152,7 @@ public class Main {
         } catch (java.io.IOException e) {
             System.err.println("Could not save connection settings: " + e.getMessage());
         }
-        System.out.println("Logged in. Commands: /status, /quota, /logout, /exit. Type a question to chat.");
+        System.out.println("Logged in. Commands: /status, /quota, /logout, /exit.");
         String line;
         while ((line = console.readLine("> ")) != null) {
             if (line.equals("/status")) {
@@ -181,7 +181,9 @@ public class Main {
                 return;
             } else if (line.equals("/exit")) return;
             else if (!line.isBlank() && !line.startsWith("/")) {
-                ChatClient.ask(http, server, token, line);
+                Boolean optimize = OptimizationChoice.ask(console);
+                if (optimize == null) return;
+                ChatClient.ask(http, server, token, line, optimize, console);
             } else if (!line.isBlank()) System.out.println("Unknown command.");
         }
     }
