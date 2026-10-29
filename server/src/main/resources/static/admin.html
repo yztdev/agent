@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+  <title>Token 管理</title>
+  <style>
+    body { font: 16px system-ui; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    input, button { padding: .5rem; margin: .2rem; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border-bottom: 1px solid #ddd; padding: .5rem; text-align: left; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    section { margin: 2rem 0; }
+  </style>
+  <script src="admin.js" defer></script>
+</head>
+<body>
+  <h1>Token 管理</h1>
+  <section id="login">
+    <input id="user" placeholder="管理员用户名" autocomplete="username">
+    <input id="pass" type="password" placeholder="密码" autocomplete="current-password">
+    <button id="signin">登录</button>
+  </section>
+  <section id="panel" hidden>
+    <p>管理员会话保存在页面内存中，关闭页面即消失。</p>
+    <input id="search" placeholder="搜索用户名">
+    <button id="find">查询</button><button id="previous">上一页</button>
+    <button id="next">下一页</button><button id="logout">注销</button>
+    <table>
+      <thead><tr><th>用户</th><th>状态</th><th>额度</th><th>已用</th><th>预留</th><th>可用</th><th>操作</th></tr></thead>
+      <tbody id="users"></tbody>
+    </table>
+    <h2>调用明细（最近 100 条）</h2>
+    <pre id="details"></pre>
+    <h2>待核对请求</h2>
+    <input id="requestid" placeholder="待核对请求 ID">
+    <input id="inputusage" type="number" min="0" placeholder="实际输入 Token">
+    <input id="outputusage" type="number" min="0" placeholder="实际输出 Token">
+    <input id="reason" placeholder="核对原因">
+    <button id="resolve">确认核对</button>
+  </section>
+  <p id="error" role="alert"></p>
+</body>
+</html>

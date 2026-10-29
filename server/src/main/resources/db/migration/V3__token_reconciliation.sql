@@ -1,0 +1,1 @@
+CREATE TABLE token_reconciliations (id uuid PRIMARY KEY, request_id uuid NOT NULL REFERENCES token_requests(id), actor_user_id uuid NOT NULL REFERENCES users(id), input_tokens bigint NOT NULL, output_tokens bigint NOT NULL, reason text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());

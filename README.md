@@ -74,3 +74,19 @@ PowerShell 中的 `/agent` 不是普通命令名，请使用 `agent`；程序内
 在项目根目录编辑 `.env`，填写数据库密码、证书路径和证书密码。启动数据库后，在同一目录运行 `java -jar server/target/server-0.1.0.jar`，程序自动读取 `.env`。配置文件含明文密码，已加入 `.gitignore`，应限制文件访问权限，勿共享或提交。路径相对于运行命令时的当前目录；环境变量可覆盖配置。`start-server.ps1` 是另一种选择，通过环境变量注入 Windows 用户加密凭据。
 
 客户端内置 `server.crt` 公开证书，只在连接 `119.29.165.28` 且未指定自定义证书时使用。首次运行输入 `https://119.29.165.28:8443` 后不需要填写证书路径。服务器更换证书后须通过可信渠道核验新证书，并替换 `client/src/main/resources/trusted-server.crt` 重新打包；私钥不得放入客户端。
+
+## V0.2 试运行配置
+
+服务端 `.env` 中配置 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_MODEL`；`DEEPSEEK_MAX_OUTPUT` 可选，默认 1024。当前不检查用户剩余配额，也不再使用 `DEEPSEEK_CONTEXT_LIMIT` 进行请求判断；实际用量仍记录，供应商调用会产生费用。密钥仅保存在服务端，不提交或分发。
+
+部署新 JAR 前备份数据库。Flyway 会自动执行 V2、V3 迁移，新用户默认 Token 额度为 0；管理员在 `https://服务器地址:8443/admin.html` 登录并设置配额。用户在终端输入问题进行单轮对话，用 `/quota` 查看余额。当前无跨提问记忆及工具调用。
+
+模型返回用量缺失、网络错误等情况标记为待核对并保留预留。管理后台可输入请求 ID、经核实的实际输入与输出 Token 和核对理由进行结算；不得把未知用量当成零。服务异常终止可能留下 `reserved` 状态，本版本尚未提供自动回收，处理前须核实上游请求状态。流式请求会实际消耗供应商额度；生产使用前应在测试账号上完成接口联调及安全审查。
+
+## 当前 Token 策略
+
+用户余额暂不限制提问：无额度或额度为负时仍可请求。每次请求保留用量记录，但不预留用户配额；供应商返回用量后仍计入已用量，失败且用量未知时标记待核对。余额可为负。服务端仍需要有效的 DeepSeek API 密钥和模型配置；模型服务调用仍会产生费用，系统不会因用户额度不足自动停止。
+
+## Java 源码目录
+
+客户端 Java 源码位于 `client/src/main/java`；服务端 Java 源码及测试位于 `server/src/main/java` 和 `server/src/test/java`。服务端仍由 `server/pom.xml` 单独构建，其数据库迁移、配置和管理后台资源仍在 `server/src/main/resources`。使用 `mvn -pl server -am package` 构建服务端，使用 `mvn -pl client -am package` 构建客户端。
